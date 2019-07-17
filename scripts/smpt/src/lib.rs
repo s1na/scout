@@ -1,17 +1,21 @@
 extern crate ethereum_types;
 extern crate ewasm_api;
+extern crate rlp as rlplib;
 
 mod account;
+mod blockdata;
 mod keccak_hasher;
+mod rlp;
 mod sig;
 mod trie;
 mod tx;
 
 use crate::keccak_hasher::KeccakHasher;
 use account::BasicAccount;
+use blockdata::BlockData;
 use ethereum_types::{H256, U256};
 use ewasm_api::prelude::*;
-use rlp::{DecoderError, Rlp};
+use rlplib::{Decodable, DecoderError, Rlp};
 use sig::recover_address;
 use trie::Trie;
 use tx::{Tx, UnsignedTx};
@@ -21,27 +25,9 @@ extern "C" {
     fn debug_endTimer();
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct BlockData {
-    txes: Vec<Tx>,
-    proof_nodes: Vec<Vec<u8>>,
-}
-
-impl rlp::Decodable for BlockData {
-    fn decode(d: &Rlp) -> Result<Self, DecoderError> {
-        if d.item_count()? != 2 {
-            return Err(DecoderError::RlpIncorrectListLen);
-        }
-
-        Ok(BlockData {
-            txes: d.list_at(0)?,
-            proof_nodes: d.list_at(1)?,
-        })
-    }
-}
-
 fn process_block(pre_state_root: Bytes32, block_data_bytes: &[u8]) -> Bytes32 {
-    let block_data: BlockData = rlp::decode(&block_data_bytes).unwrap();
+    // Takes ~25ms
+    let block_data: BlockData = rlplib::decode(&block_data_bytes).unwrap();
 
     let proof_nodes_count = block_data.proof_nodes.len();
 
@@ -51,13 +37,15 @@ fn process_block(pre_state_root: Bytes32, block_data_bytes: &[u8]) -> Bytes32 {
         trie.db_insert(item);
     }
 
-    let mut root = H256::from_slice(&pre_state_root.bytes[..]);
+    let mut root = H256::from(pre_state_root.bytes);
+    // Up to this point: 53ms keccak256, 26ms memcpy
+
     for tx in block_data.txes {
         let from_address = tx.from;
         let value = trie.get(&root, from_address);
-        let from_account: BasicAccount = rlp::decode(&value).unwrap();
+        let from_account = BasicAccount::from_rlp(&value);
         let value2 = trie.get(&root, tx.to);
-        let to_account: BasicAccount = rlp::decode(&value).unwrap();
+        let to_account = BasicAccount::from_rlp(&value);
         /*let new_nodes = trie.verify_and_update(&root, from_address, tx.value, true);
         for n in new_nodes {
             root = trie.db_insert(&n);

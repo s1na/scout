@@ -1,6 +1,7 @@
+use crate::rlp::{decode_length, RLPItem};
 use crate::sig::Sig;
 use ethereum_types::{Address, U256};
-use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
+use rlplib::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tx {
@@ -10,6 +11,42 @@ pub struct Tx {
     pub from: Address,
     //pub sig: Vec<u8>,
     //pub sig: Sig,
+}
+
+impl Tx {
+    pub fn from_rlp(data: &[u8]) -> Self {
+        if data.len() == 0 {
+            panic!("invalid rlp-encoded node");
+        }
+
+        // Tx should be a list
+        let (mut offset, len) = match decode_length(data) {
+            RLPItem::List(offset, len) => (offset, len),
+            RLPItem::Str(_, _) => panic!("encode node should be a list"),
+        };
+
+        let data = &data[offset..offset + len];
+        offset = 0;
+
+        // Parse each node part, which should be a string
+        let mut items = vec![];
+        while offset < len {
+            let (o, l) = match decode_length(&data[offset..]) {
+                RLPItem::Str(offset, len) => (offset, len),
+                RLPItem::List(_, _) => panic!("node part should be str"),
+            };
+            offset += o;
+            items.push(&data[offset..offset + l]);
+            offset += l;
+        }
+
+        Tx {
+            to: Address::from_slice(&items[0]),
+            value: U256::from_big_endian(&items[1]),
+            nonce: U256::from_big_endian(&items[2]),
+            from: Address::from_slice(&items[3]),
+        }
+    }
 }
 
 impl Decodable for Tx {

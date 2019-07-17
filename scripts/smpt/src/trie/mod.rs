@@ -1,15 +1,10 @@
-extern crate trie_db as trie;
-
 mod nibbleslice;
 mod node;
-//mod rlp_node_codec;
 
 use super::BasicAccount;
-use super::KeccakHasher;
 use ethereum_types::{Address, H256, U256};
 use nibbleslice::NibbleSlice;
 use node::Node;
-//use rlp_node_codec::{RlpNodeCodec, HASHED_NULL_NODE_BYTES};
 use std::collections::HashMap;
 use tiny_keccak::keccak256;
 
@@ -37,17 +32,10 @@ impl Trie {
 
     pub fn db_get(&self, key: &H256) -> Option<&Vec<u8>> {
         self.db.get(key)
-        /*match self.db.get(key) {
-            Some(v) => Some(*v),
-            None => None,
-        }*/
     }
 
     pub fn db_insert(&mut self, value: Vec<u8>) -> H256 {
-        //let mut out = [0u8; 32];
-        //tiny_keccak::Keccak::keccak256(value, &mut out);
         let key: H256 = H256::from(keccak256(&value));
-        //let key: H256 = out.into();
         self.db.insert(key, value);
         key
     }
@@ -58,12 +46,10 @@ impl Trie {
         }
 
         if node_hash.len() < 32 {
-            Node::from(node_hash)
-        //Node::from_rlp(node_hash).expect("ok decode")
+            Node::from_rlp(node_hash)
         } else {
             let encoded = self.db_get(&H256::from_slice(node_hash)).unwrap();
-            Node::from(&encoded)
-            //Node::from_rlp(&encoded).expect("ok decode")
+            Node::from_rlp(&encoded)
         }
     }
 
