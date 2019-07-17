@@ -7,7 +7,9 @@ pub struct Tx {
     pub to: Address,
     pub value: U256,
     pub nonce: U256,
-    pub sig: Sig,
+    pub from: Address,
+    //pub sig: Vec<u8>,
+    //pub sig: Sig,
 }
 
 impl Decodable for Tx {
@@ -20,7 +22,7 @@ impl Decodable for Tx {
             to: d.val_at(0)?,
             value: d.val_at(1)?,
             nonce: d.val_at(2)?,
-            sig: d.val_at(3)?,
+            from: d.val_at(3)?,
         })
     }
 }

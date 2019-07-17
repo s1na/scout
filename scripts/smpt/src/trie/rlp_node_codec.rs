@@ -15,8 +15,6 @@
 // along with Parity Ethereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! `NodeCodec` implementation for Rlp
-//! Taken from:
-//! https://github.com/paritytech/parity-ethereum/blob/6bb106a784678cc2cadabfd621981371f477c48d/util/patricia-trie-ethereum/src/rlp_node_codec.rs
 
 use crate::keccak_hasher::KeccakHasher;
 use elastic_array::ElasticArray128;
@@ -24,7 +22,7 @@ use ethereum_types::H256;
 use hash_db::Hasher;
 use rlp::{DecoderError, Prototype, Rlp, RlpStream};
 use std::marker::PhantomData;
-use trie::{node::Node, ChildReference, NibbleSlice, NodeCodec};
+use trie_db::{node::Node, ChildReference, NibbleSlice, NodeCodec};
 
 /// Concrete implementation of a `NodeCodec` with Rlp encoding, generic over the `Hasher`
 #[derive(Default, Clone)]
@@ -32,11 +30,34 @@ pub struct RlpNodeCodec<H: Hasher> {
     mark: PhantomData<H>,
 }
 
-const HASHED_NULL_NODE_BYTES: [u8; 32] = [
+pub const HASHED_NULL_NODE_BYTES: [u8; 32] = [
     0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8, 0x6e,
     0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21,
 ];
 pub const HASHED_NULL_NODE: H256 = H256(HASHED_NULL_NODE_BYTES);
+pub fn ext_node(partial: &[u8], value: &[u8]) -> Vec<u8> {
+    let mut stream = RlpStream::new_list(2);
+    stream.append(&partial);
+    stream.append(&value);
+    stream.drain()
+}
+
+pub fn branch_node(children: [Option<&[u8]>; 16], value: Option<ElasticArray128<u8>>) -> Vec<u8> {
+    let mut stream = RlpStream::new_list(17);
+    for child in children.iter() {
+        match child {
+            Some(v) => stream.append(v),
+            None => stream.append_empty_data(),
+        };
+    }
+    if let Some(value) = value {
+        stream.append(&&*value);
+    } else {
+        stream.append_empty_data();
+    }
+    stream.drain()
+}
+
 // NOTE: what we'd really like here is:
 // `impl<H: Hasher> NodeCodec<H> for RlpNodeCodec<H> where H::Out: Decodable`
 // but due to the current limitations of Rust const evaluation we can't
@@ -56,7 +77,7 @@ impl NodeCodec<KeccakHasher> for RlpNodeCodec<KeccakHasher> {
             // fed back into this function or inline RLP which can be fed back into this function).
             Prototype::List(2) => match NibbleSlice::from_encoded(r.at(0)?.data()?) {
                 (slice, true) => Ok(Node::Leaf(slice, r.at(1)?.data()?)),
-                (slice, false) => Ok(Node::Extension(slice, r.at(1)?.as_raw())),
+                (slice, false) => Ok(Node::Extension(slice, r.at(1)?.data()?)),
             },
             // branch - first 16 are nodes, 17th is a value (or empty).
             Prototype::List(17) => {
@@ -66,7 +87,7 @@ impl NodeCodec<KeccakHasher> for RlpNodeCodec<KeccakHasher> {
                     if v.is_empty() {
                         nodes[i] = None;
                     } else {
-                        nodes[i] = Some(v.as_raw());
+                        nodes[i] = Some(v.data()?);
                     }
                 }
                 Ok(Node::Branch(

@@ -23,8 +23,24 @@ impl rlp::Decodable for Sig {
         })
     }
 }
+pub fn recover_address(signature: Vec<u8>, message: [u8; 32]) -> Address {
+    assert!(signature.len() == 65);
 
-pub fn recover_address(signature: &Sig, message: [u8; 32]) -> Address {
+    /*let mut s = [0u8; 64];
+    (&mut s[..32]).copy_from_slice(&Into::<[u8; 32]>::into(signature.r)[..32]);
+    (&mut s[32..64]).copy_from_slice(&Into::<[u8; 32]>::into(signature.s)[..32]);*/
+
+    let message = Message::parse(&message);
+    let rec_id = RecoveryId::parse(signature[64] - 27).unwrap();
+    let sig = Signature::parse_slice(&signature[..64]).unwrap();
+
+    let key = recover(&message, &sig, &rec_id).unwrap();
+    let ret = key.serialize();
+    let ret = keccak256(&ret[1..65]);
+
+    Address::from_slice(&ret[12..32])
+}
+/*pub fn recover_address(signature: &Sig, message: [u8; 32]) -> Address {
     let mut s = [0u8; 64];
     (&mut s[..32]).copy_from_slice(&Into::<[u8; 32]>::into(signature.r)[..32]);
     (&mut s[32..64]).copy_from_slice(&Into::<[u8; 32]>::into(signature.s)[..32]);
@@ -38,4 +54,4 @@ pub fn recover_address(signature: &Sig, message: [u8; 32]) -> Address {
     let ret = keccak256(&ret[1..65]);
 
     Address::from_slice(&ret[12..32])
-}
+}*/

@@ -26,6 +26,13 @@ use ethereum_types::H256;
 use hash_db::Hasher;
 use plain_hasher::PlainHasher;
 use tiny_keccak::Keccak;
+
+pub static mut hash_count: u32 = 0;
+
+extern "C" {
+    pub fn util_keccak(outputOffset: *const u32, offset: *const u32, length: u32);
+}
+
 /// Concrete `Hasher` impl for the Keccak-256 hash
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct KeccakHasher;
@@ -34,8 +41,19 @@ impl Hasher for KeccakHasher {
     type StdHasher = PlainHasher;
     const LENGTH: usize = 32;
     fn hash(x: &[u8]) -> Self::Out {
-        let mut out = [0; 32];
+        unsafe {
+            hash_count += 1;
+        }
+        let mut out = [0u8; 32];
+        /*unsafe {
+            util_keccak(
+                out.as_mut_ptr() as *const u32,
+                x.as_ptr() as *const u32,
+                x.len() as u32,
+            );
+        }*/
         Keccak::keccak256(x, &mut out);
         out.into()
+        //H256::from_slice(&out[..])
     }
 }

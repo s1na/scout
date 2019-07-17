@@ -99,8 +99,17 @@ async function generateTxes (state, accounts, count=50) {
     const txRlp = encode([to, stripZeros(value.toBuffer('be', 32)), stripZeros(nonce.toBuffer('be', 32))])
     const txHash = keccak256(txRlp)
     const txSig = ecsign(txHash, accounts[i].privateKey)
+    assert(txSig.r.byteLength === 32)
+    assert(txSig.s.byteLength === 32)
+    assert(txSig.v < 256)
+    const v = new Uint8Array(1)
+    v[0] = txSig.v
+    const sigBytes = Buffer.concat([txSig.r, txSig.s, v], 65)
 
-    txes.push([to, stripZeros(value.toBuffer('be', 32)), stripZeros(nonce.toBuffer('be', 32)), [stripZeros(txSig.r), stripZeros(txSig.s), txSig.v]])
+    txes.push([to, stripZeros(value.toBuffer('be', 32)), stripZeros(nonce.toBuffer('be', 32)), from])
+    //txes.push([to, stripZeros(value.toBuffer('be', 32)), stripZeros(nonce.toBuffer('be', 32)), sigBytes])
+    //txes.push([to, stripZeros(value.toBuffer('be', 32)), stripZeros(nonce.toBuffer('be', 32)), [stripZeros(txSig.r), stripZeros(txSig.s), txSig.v]])
+    //txes.push([to, stripZeros(value.toBuffer('be', 32)), stripZeros(nonce.toBuffer('be', 32)), from])
   }
   console.log(`Deduplicated ${totalNodes} proof nodes ${Object.values(proofNodes).length}`)
   return [txes, Object.values(proofNodes), simulationData]
