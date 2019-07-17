@@ -48,7 +48,7 @@ fn process_block(pre_state_root: Bytes32, block_data_bytes: &[u8]) -> Bytes32 {
     let mut trie = Trie::with_capacity(proof_nodes_count);
 
     for item in block_data.proof_nodes {
-        trie.db_insert(&item);
+        trie.db_insert(item);
     }
 
     let mut root = H256::from_slice(&pre_state_root.bytes[..]);

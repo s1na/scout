@@ -7,7 +7,6 @@ mod node;
 use super::BasicAccount;
 use super::KeccakHasher;
 use ethereum_types::{Address, H256, U256};
-use kvdb::DBValue;
 use nibbleslice::NibbleSlice;
 use node::Node;
 //use rlp_node_codec::{RlpNodeCodec, HASHED_NULL_NODE_BYTES};
@@ -20,7 +19,7 @@ pub const HASHED_NULL_NODE_BYTES: [u8; 32] = [
 ];
 
 pub struct Trie {
-    db: HashMap<H256, DBValue>,
+    db: HashMap<H256, Vec<u8>>,
 }
 
 impl Trie {
@@ -36,20 +35,20 @@ impl Trie {
         }
     }
 
-    pub fn db_get(&self, key: &H256) -> Option<&DBValue> {
+    pub fn db_get(&self, key: &H256) -> Option<&Vec<u8>> {
         self.db.get(key)
         /*match self.db.get(key) {
-            Some(v) => Some(v.clone()),
+            Some(v) => Some(*v),
             None => None,
         }*/
     }
 
-    pub fn db_insert(&mut self, value: &[u8]) -> H256 {
+    pub fn db_insert(&mut self, value: Vec<u8>) -> H256 {
         //let mut out = [0u8; 32];
         //tiny_keccak::Keccak::keccak256(value, &mut out);
-        let key: H256 = H256::from(keccak256(value));
+        let key: H256 = H256::from(keccak256(&value));
         //let key: H256 = out.into();
-        self.db.insert(key, value.into());
+        self.db.insert(key, value);
         key
     }
 
