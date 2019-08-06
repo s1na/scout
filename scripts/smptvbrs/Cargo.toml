@@ -1,0 +1,24 @@
+[package]
+name = "smptvbrs"
+version = "0.0.0"
+license = "Apache-2.0"
+repository = "https://github.com/ewasm/scout"
+description = "Stateless merkle patricia balance tree"
+publish = false
+edition = "2018"
+
+[dependencies]
+elastic-array = "0.10"
+tiny-keccak = "1.5"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies.ewasm_api]
+version = "0.10.0"
+default-features = false
+features = ["std", "eth2", "debug"]
+
+[profile.release]
+lto = true
+debug = false
